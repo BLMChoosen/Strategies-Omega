@@ -2,14 +2,34 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemoteFunction = if not GameSpoof then ReplicatedStorage:WaitForChild("RemoteFunction") else SpoofEvent
-local RemoteEvent = if not GameSpoof then ReplicatedStorage:WaitForChild("RemoteEvent") else SpoofEvent
-local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time") -- Current game's timer
-local RSMode = ReplicatedStorage:WaitForChild("State"):WaitForChild("Mode") -- Survival or Hardcore check
-local RSDifficulty = ReplicatedStorage:WaitForChild("State"):WaitForChild("Difficulty") -- Survival's gamemodes
-local RSMap = ReplicatedStorage:WaitForChild("State"):WaitForChild("Map") --map's Name
--- local VoteGUI = LocalPlayer.PlayerGui:WaitForChild("ReactOverridesVote"):WaitForChild("Frame"):WaitForChild("votes"):WaitForChild("vote") -- Moved to task.spawn below
-local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay"):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value") -- currennt wave you are on
+
+-- Helper function to find objects recursively
+local function FindObject(Parent, Name)
+    local Object = Parent:FindFirstChild(Name, true)
+    if not Object then
+        warn("Could not find " .. Name .. " in " .. Parent.Name)
+        return Parent:WaitForChild(Name, 5) -- Try waiting with timeout
+    end
+    return Object
+end
+
+local RemoteFunction = if not GameSpoof then FindObject(ReplicatedStorage, "RemoteFunction") else SpoofEvent
+local RemoteEvent = if not GameSpoof then FindObject(ReplicatedStorage, "RemoteEvent") else SpoofEvent
+
+local StateFolder = FindObject(ReplicatedStorage, "State")
+local RSTimer = FindObject(StateFolder, "Time") -- Usually in State/Timer/Time or just State/Time
+if not RSTimer then RSTimer = StateFolder:WaitForChild("Timer"):WaitForChild("Time") end
+
+local RSMode = FindObject(StateFolder, "Mode")
+local RSDifficulty = FindObject(StateFolder, "Difficulty")
+local RSMap = FindObject(StateFolder, "Map")
+
+local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay", 10)
+if GameWave then
+    GameWave = GameWave:WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value")
+else
+    warn("Could not find GameWave GUI")
+end
 
 getgenv().WriteFile = function(check,name,location,str)
     if not check then
@@ -203,26 +223,35 @@ local GenerateFunction = {
             return
         end
         local TowerName = Args[3]
-        local Position = Args[4].Position
-        local Rotation = Args[4].Rotation
+        local Data = Args[4]
+        if not TowerName or not Data or not Data.Position then
+             warn("Recorder: Invalid Place arguments")
+             return
+        end
+        local Position = Data.Position
+        local Rotation = Data.Rotation or CFrame.new()
         local RotateX,RotateY,RotateZ = Rotation:ToEulerAnglesYXZ()
         TowerCount += 1
         RemoteCheck.Name = TowerCount
         TowersList[TowerCount] = {
-            ["TowerName"] = Args[3],
+            ["TowerName"] = TowerName,
             ["Instance"] = RemoteCheck,
             ["Position"] = Position,
             ["Rotation"] = Rotation,
         }
         local upgradeHandler = require(ReplicatedStorage.Client.Modules.Game.Interface.Elements.Upgrade.upgradeHandler)
-        upgradeHandler:selectTroop(RemoteCheck)
+        if upgradeHandler and upgradeHandler.selectTroop then
+             upgradeHandler:selectTroop(RemoteCheck)
+        end
         SetStatus(`Placed {TowerName}`)
         local TimerStr = table.concat(Timer, ", ")
         appendstrat(`TDS:Place("{TowerName}", {Position.X}, {Position.Y}, {Position.Z}, {TimerStr}, {RotateX}, {RotateY}, {RotateZ})`)
     end,
     Upgrade = function(Args, Timer, RemoteCheck)
-        local TowerIndex = Args[4].Troop.Name;
-        local PathTarget = Args[4].Path
+        local Data = Args[4]
+        if not Data or not Data.Troop then return end
+        local TowerIndex = Data.Troop.Name;
+        local PathTarget = Data.Path
         if RemoteCheck ~= true then
             SetStatus(`Upgraded Failed ID: {TowerIndex}`)
             print(`Upgraded Failed ID: {TowerIndex}`, RemoteCheck)
@@ -233,8 +262,10 @@ local GenerateFunction = {
         appendstrat(`TDS:Upgrade({TowerIndex}, {TimerStr}, {PathTarget})`)
     end,
     Sell = function(Args, Timer, RemoteCheck)
-        local TowerIndex = Args[3].Troop.Name;
-        if not RemoteCheck or TowersList[tonumber(TowerIndex)].Instance:FindFirstChild("HumanoidRootPart") then
+        local Data = Args[3]
+        if not Data or not Data.Troop then return end
+        local TowerIndex = Data.Troop.Name;
+        if not RemoteCheck or (TowersList[tonumber(TowerIndex)] and TowersList[tonumber(TowerIndex)].Instance:FindFirstChild("HumanoidRootPart")) then
             SetStatus(`Sell Failed ID: {TowerIndex}`)
             print(`Sell Failed ID: {TowerIndex}`, RemoteCheck)
             return
@@ -244,8 +275,10 @@ local GenerateFunction = {
         appendstrat(`TDS:Sell({TowerIndex}, {TimerStr})`)
     end,
     Target = function(Args, Timer, RemoteCheck)
-        local TowerIndex = Args[4].Troop.Name
-        local Target = Args[4].Target
+        local Data = Args[4]
+        if not Data or not Data.Troop then return end
+        local TowerIndex = Data.Troop.Name
+        local Target = Data.Target
         if RemoteCheck ~= true then
             SetStatus(`Target Failed ID: {TowerIndex}`)
             print(`Target Failed ID: {TowerIndex}`, RemoteCheck)
@@ -255,9 +288,11 @@ local GenerateFunction = {
         appendstrat(`TDS:Target({TowerIndex}, "{Target}", {TimerStr})`)
     end,
     Abilities = function(Args, Timer, RemoteCheck)
-        local TowerIndex = Args[4].Troop.Name
-        local AbilityName = Args[4].Name
-        local Data = Args[4].Data
+        local Data = Args[4]
+        if not Data or not Data.Troop then return end
+        local TowerIndex = Data.Troop.Name
+        local AbilityName = Data.Name
+        local AbilityData = Data.Data
         if RemoteCheck ~= true then
             SetStatus(`Ability Failed ID: {TowerIndex}`)
             print(`Ability Failed ID: {TowerIndex}`, RemoteCheck)
@@ -276,15 +311,17 @@ local GenerateFunction = {
             end
             return "{" .. table.concat(formattedData, ", ") .. "}"
         end
-        local formattedData = formatData(Data)
+        local formattedData = formatData(AbilityData)
         SetStatus(`Used Ability On TowerIndex {TowerIndex}`)
         local TimerStr = table.concat(Timer, ", ")
         appendstrat(`TDS:Ability({TowerIndex}, "{AbilityName}", {TimerStr}, {formattedData})`)
     end,
     Option = function(Args, Timer, RemoteCheck)
-        local TowerIndex = Args[4].Troop.Name;
-        local OptionName = Args[4].Name
-        local Value = Args[4].Value
+        local Data = Args[4]
+        if not Data or not Data.Troop then return end
+        local TowerIndex = Data.Troop.Name;
+        local OptionName = Data.Name
+        local Value = Data.Value
         if RemoteCheck ~= true then
             SetStatus(`Option Failed ID; {TowerIndex}`)
             print(`Option Failed ID: {TowerIndex}`, RemoteCheck)
@@ -406,13 +443,49 @@ end)
 local OldNamecall
 OldNamecall = hookmetamethod(game, '__namecall', function(...)
     local Self, Args = (...), ({select(2, ...)})
-    if getnamecallmethod() == "InvokeServer" and Self.name == "RemoteFunction" then
+    local Method = getnamecallmethod()
+    
+    if Method == "InvokeServer" and (Self.Name == "RemoteFunction" or Self:IsA("RemoteFunction")) then
+        -- Debug prints requested by user
+        warn("[Recorder Debug] InvokeServer called on " .. tostring(Self))
+        
         local thread = coroutine.running()
         coroutine.wrap(function(Args)
-            local Timer = GetTimer()
-            local RemoteFired = Self.InvokeServer(Self, unpack(Args))
-            if GenerateFunction[Args[2]] then
-                GenerateFunction[Args[2]](Args, Timer, RemoteFired)
+            -- FIX: Use getgenv().GetTimer instead of just GetTimer to ensure we find it
+            local TimerFunc = getgenv().GetTimer
+            local Timer = {0, 0, 0, "false"} -- Default safe value
+            
+            if TimerFunc then
+                local success, result = pcall(TimerFunc)
+                if success then
+                    Timer = result
+                else
+                    warn("[Recorder Debug] Error calling GetTimer:", result)
+                end
+            else
+                warn("[Recorder Debug] GetTimer not found")
+            end
+
+            -- CRITICAL FIX: Use OldNamecall to execute the original method
+            -- Calling Self.InvokeServer(Self, ...) can fail or recurse
+            local RemoteFired
+            if OldNamecall then
+                -- Some exploits require setting the namecall method before calling the original function
+                setnamecallmethod("InvokeServer") 
+                RemoteFired = OldNamecall(Self, unpack(Args))
+            else
+                -- Fallback (risky, but better than crashing if OldNamecall is nil)
+                RemoteFired = Self.InvokeServer(Self, unpack(Args))
+            end
+            
+            local Command = Args[2]
+            if type(Command) == "string" and GenerateFunction[Command] then
+                local success, err = pcall(function()
+                    GenerateFunction[Command](Args, Timer, RemoteFired)
+                end)
+                if not success then
+                    warn("[Recorder Debug] Error inside handler for " .. Command .. ":", err)
+                end
             end
             coroutine.resume(thread, RemoteFired)
         end)(Args)

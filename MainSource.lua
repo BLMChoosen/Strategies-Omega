@@ -375,17 +375,18 @@ getgenv().GetPlayerState = function()
 	until PlayerState
 end]]
 
-local TimerCheck = false
-function CheckTimer(bool)
+local function CheckTimer(bool)
 	return (bool and TimerCheck) or true
 end
-function TimePrecise(Number)
+local function TimePrecise(Number)
 	--return math.round((math.ceil(Number) - Number)*1000)/1000 --more the decimal, long wait
 	return (Number - math.floor(Number) - 0.13) + 0.5 --more the decimal, less wait, wtf is this mathematic, 0.7 is random error of Timer <= 1
 end
-function TotalSec(Minute,Second)
+local function TotalSec(Minute,Second)
 	return (Minute*60) + math.ceil(Second)
 end
+getgenv().TotalSec = TotalSec -- Make it available globally just in case
+
 function TowersCheckHandler(...)
 	local CurrentCount = StratXLibrary.CurrentCount
 	for i,v in next, {...} do
@@ -431,7 +432,7 @@ function ConvertTimer(number : number)
 	return math.floor(number/60), number % 60
 end
 
-function TimeWaveWait(Wave,Min,Sec,InWave,Debug)
+getgenv().TimeWaveWait = function(Wave,Min,Sec,InWave,Debug)
 	local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay"):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value") -- Current wave you are on
     local MatchGui = LocalPlayer.PlayerGui:WaitForChild("ReactGameRewards"):WaitForChild("Frame"):WaitForChild("gameOver") -- end result
 	local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time") -- Current game's timer
@@ -445,7 +446,14 @@ function TimeWaveWait(Wave,Min,Sec,InWave,Debug)
 			return false
 		end
 	until tonumber(GameWave.Text) == Wave and CheckTimer(InWave) --CheckTimer will return true when in wave and false when not in wave
-	if RSTimer.Value - TotalSec(Min,Sec) < -1 then
+	
+    -- Debug print to check values
+    if not TotalSec then
+        warn("[MainSource Debug] TotalSec is nil! Using fallback.")
+        TotalSec = function(m,s) return (m*60) + math.ceil(s) end
+    end
+    
+    if RSTimer.Value - TotalSec(Min,Sec) < -1 then
 		return true
 	end
 	local Timer = 0
