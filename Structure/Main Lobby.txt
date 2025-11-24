@@ -1,0 +1,300 @@
+========================================
+TDS STRUCTURE DEBUG
+========================================
+
+[1] REPLICATED STORAGE:
+RemoteFunction existe? true
+RemoteEvent existe? true
+
+[2] STATE FOLDER:
+❌ State NÃO encontrado!
+Procurando por StateReplicators...
+✅ StateReplicators encontrado!
+  ├─ FFlagReplicator (Folder)
+  ├─ GameRulesReplicator (Folder)
+  ├─ GameStateReplicator (Folder)
+  ├─ CutSceneReplicator (Folder)
+  ├─ PlayerReplicator (Folder)
+
+[3] PLAYER GUI:
+❌ ReactGameTopGameDisplay NÃO encontrado!
+GUIs disponíveis:
+  - ReactLobbyHuntComputerInput
+  - ReactLobbyCatalog
+  - ReactLobbyPVPRanked
+  - ReactLobbyNews
+  - ReactLobbyStarterPack
+  - ReactLobbyHunt2025Event
+  - ReactLobbyParty
+  - ReactLobbyLogin
+  - ReactLobbyPlaytime
+  - ReactLobbyElevatorControls
+  - ReactLobbyBattlepass
+  - ReactLobbyElevator
+  - ReactLobbySkillTree
+  - ReactLobbyTutorial
+  - ReactLobbyWinter2024Event
+  - ReactLobbyLogBook
+  - ReactLobbyHud
+  - ReactLobbyLiveEventSurfaceDisplay
+  - ReactLobbyGiftProduct
+  - ReactLobbyDisconnectionPenaltyPopups
+  - ReactLobbyPVPTimer
+  - ReactLobbyQuests
+  - ReactLobbyEventMissions
+  - ReactOverridesDialog
+  - ReactOverridesTopBar
+  - ReactOverridesVote
+  - ReactOverridesCurseVoteView
+  - ReactOverridesTooltips
+  - ReactOverridesSpotlight
+  - ReactOverridesLoading
+  - ReactOverridesModifiers
+  - ReactUniversalPlayerList
+  - ReactUniversalGlitchEffect
+  - ReactUniversalProfiler
+  - ReactUniversalPVPStats
+  - ReactUniversalQAWatermark
+  - ReactUniversalMainObjective
+  - ReactUniversalSettings
+  - ReactUniversalEmotes
+  - ReactUniversalToolTipKeybind
+  - ReactUniversalMatchmaking
+  - ReactUniversalRightClickMenu
+  - ReactUniversalToasts
+  - ReactUniversalObjectives
+  - ReactUniversalSelectionList
+  - ReactUniversalGlitchEffectTextEvent
+  - ReactUniversalMobile
+  - ReactUniversalAdminNotification
+  - ReactUniversalPVPLeaderboards
+
+[4] VOTE GUI:
+✅ ReactOverridesVote encontrado!
+  ├─ Frame (Frame)
+
+[5] CLIENT MODULES:
+✅ Client encontrado!
+  Modules encontrado:
+    ├─ Game (Folder)
+      ├─ Compatibility (Folder)
+        ├─ Controllers (Folder)
+          ├─ BackfillController (ModuleScript)
+          ├─ Camera (ModuleScript)
+            ├─ Handlers (Folder)
+          ├─ CameraModeController (ModuleScript)
+          ├─ ClientMapController (ModuleScript)
+            ├─ Cold Ambush (ModuleScript)
+          ├─ ConsoleController (ModuleScript)
+          ├─ DamageController (ModuleScript)
+          ├─ EasterClient (ModuleScript)
+          ├─ Effects (ModuleScript)
+          ├─ LeaderboardDisplayController (ModuleScript)
+          ├─ NewGameController (ModuleScript)
+          ├─ NewPlacement (ModuleScript)
+          ├─ NyanCatController (ModuleScript)
+            ├─ NyanCats (ModuleScript)
+          ├─ PathPlacementCursor (ModuleScript)
+          ├─ Placement (ModuleScript)
+            ├─ Calculate (ModuleScript)
+          ├─ Replicator (ModuleScript)
+            ├─ CashAwardStatsReplicator (ModuleScript)
+            ├─ ClientGameMiddleware (ModuleScript)
+            ├─ DifficultyReplicator (ModuleScript)
+            ├─ Enemies (ModuleScript)
+            ├─ GlobalModifierReplicator (ModuleScript)
+            ├─ HighlightArea (ModuleScript)
+            ├─ IntermissionLobbyReplicator (ModuleScript)
+            ├─ ItemPickupReplicator (ModuleScript)
+            ├─ ItemPickupStatsUIReplicator (ModuleScript)
+            ├─ Items (ModuleScript)
+            ├─ MapItemsReplicator (ModuleScript)
+            ├─ NPCReplicator (ModuleScript)
+            ├─ PathArrow (ModuleScript)
+            ├─ PathReplicator (ModuleScript)
+            ├─ SkillEffectsReplicator (ModuleScript)
+            ├─ SpotLightReplicator (ModuleScript)
+            ├─ TowerReplicator (ModuleScript)
+            ├─ Towers (ModuleScript)
+            ├─ UnitReplicator (ModuleScript)
+          ├─ ReviveTickets (ModuleScript)
+          ├─ StatEditor (ModuleScript)
+          ├─ TowerSelectionCursor (ModuleScript)
+          ├─ Utility (Folder)
+            ├─ Dialogue (ModuleScript)
+            ├─ Message (ModuleScript)
+            ├─ SharedControllerFunctions (ModuleScript)
+        ├─ Modules (Folder)
+          ├─ Download (ModuleScript)
+          ├─ Indicator (ModuleScript)
+          ├─ Laser (ModuleScript)
+          ├─ LobbyBoard (ModuleScript)
+          ├─ State (ModuleScript)
+      ├─ Interface (Folder)
+        ├─ Elements (Folder)
+          ├─ DebugMenu (ModuleScript)
+            ├─ StatisticsBarChartUI (ModuleScript)
+            ├─ StatisticsUI (ModuleScript)
+          ├─ Dialog (ModuleScript)
+          ├─ GamemodeDebugMenu (ModuleScript)
+            ├─ DebugLineGraph (ModuleScript)
+            ├─ DebugNumberStat (ModuleScript)
+          ├─ Health (ModuleScript)
+          ├─ Menu (ModuleScript)
+            ├─ Button (ModuleScript)
+            ├─ Container (ModuleScript)
+          ├─ t (ModuleScript)
+          ├─ Upgrade (Folder)
+            ├─ upgradeHandler (ModuleScript)
+    ├─ Lobby (Folder)
+      ├─ Controllers (Folder)
+        ├─ Barriers (ModuleScript)
+        ├─ ChallengeController (ModuleScript)
+        ├─ Credits (ModuleScript)
+        ├─ DailySpinController (ModuleScript)
+        ├─ DisconnectionPenaltyController (ModuleScript)
+        ├─ ElevatorController (ModuleScript)
+        ├─ EventAreaController (ModuleScript)
+        ├─ EventDoorController (ModuleScript)
+        ├─ EventSpawnerController (ModuleScript)
+        ├─ FanArt (ModuleScript)
+        ├─ FlyOverController (ModuleScript)
+          ├─ flyOver.story (ModuleScript)
+        ├─ GameServerController (ModuleScript)
+        ├─ Leaderboards (ModuleScript)
+        ├─ LiveEventEffects (ModuleScript)
+        ├─ MapRotation (ModuleScript)
+        ├─ PVPLeaderboardController (ModuleScript)
+        ├─ PartyController (ModuleScript)
+          ├─ PartyInviteAssetIds (ModuleScript)
+          ├─ types (ModuleScript)
+        ├─ PlaytimeRewardController (ModuleScript)
+        ├─ PrivateServerPrompt (ModuleScript)
+        ├─ SkillTreeController (ModuleScript)
+          ├─ CameraPan (ModuleScript)
+          ├─ SkillTree (ModuleScript)
+            ├─ HexTree (ModuleScript)
+          ├─ WorldCursor (ModuleScript)
+        ├─ StarterPackController (ModuleScript)
+        ├─ Statues (ModuleScript)
+          ├─ Types (Folder)
+            ├─ Animated (ModuleScript)
+            ├─ Challenge (ModuleScript)
+            ├─ Christmas (ModuleScript)
+            ├─ Event (ModuleScript)
+            ├─ Night (ModuleScript)
+            ├─ Purchase (ModuleScript)
+            ├─ UGCAnimated (ModuleScript)
+        ├─ TowerPetsController (ModuleScript)
+          ├─ LegIK (ModuleScript)
+          ├─ TowerPet (ModuleScript)
+          ├─ CustomAnimations (Folder)
+            ├─ Ace Pilot-Pet (ModuleScript)
+          ├─ RaycastThread (Actor)
+            ├─ Thread (LocalScript)
+        ├─ TutorialController (ModuleScript)
+        ├─ XmasGiftController (ModuleScript)
+      ├─ Interface (Folder)
+        ├─ Legacy (Folder)
+          ├─ Count (ModuleScript)
+          ├─ Hide (ModuleScript)
+          ├─ Matchmaking (ModuleScript)
+            ├─ Controllers (Folder)
+          ├─ Components (Folder)
+            ├─ Count (ModuleScript)
+            ├─ Hide (ModuleScript)
+          ├─ Elements (Folder)
+            ├─ Menus (ModuleScript)
+    ├─ Universal (Folder)
+      ├─ Compatibility (Folder)
+        ├─ Controllers (Folder)
+          ├─ ABController (ModuleScript)
+          ├─ AnnouncementController (ModuleScript)
+          ├─ ConsumableController (ModuleScript)
+          ├─ CustomPromptUI (ModuleScript)
+            ├─ KeyImageResolver (ModuleScript)
+            ├─ KeyMappings (ModuleScript)
+          ├─ CutSceneController (ModuleScript)
+          ├─ DebugController (ModuleScript)
+            ├─ Tools (Folder)
+          ├─ DialogController (ModuleScript)
+          ├─ FFlagController (ModuleScript)
+          ├─ HiddenModelController (ModuleScript)
+          ├─ HotKey (ModuleScript)
+          ├─ JordanController (ModuleScript)
+          ├─ LightingController (ModuleScript)
+          ├─ LocalPortalController (ModuleScript)
+          ├─ MusicController (ModuleScript)
+          ├─ NavigationController (ModuleScript)
+          ├─ ParallaxController (ModuleScript)
+          ├─ PersistController (ModuleScript)
+          ├─ PlayerListController (ModuleScript)
+          ├─ PostInitController (ModuleScript)
+          ├─ RockController (ModuleScript)
+          ├─ SharedAtomsController (ModuleScript)
+          ├─ SoundCompressor (ModuleScript)
+          ├─ SoundSettingController (ModuleScript)
+          ├─ StickerController (ModuleScript)
+          ├─ TextChatController (ModuleScript)
+          ├─ ToastController (ModuleScript)
+          ├─ UnboxingController (ModuleScript)
+          ├─ WindShakeController (ModuleScript)
+      ├─ Interface (Folder)
+        ├─ Components (Folder)
+          ├─ Background (ModuleScript)
+          ├─ Buttons (ModuleScript)
+          ├─ DepthOfField (ModuleScript)
+          ├─ Flash (ModuleScript)
+          ├─ Hover (ModuleScript)
+          ├─ Mobile (ModuleScript)
+          ├─ Monetization (ModuleScript)
+          ├─ Notification (ModuleScript)
+          ├─ Preview (ModuleScript)
+          ├─ Scroll (ModuleScript)
+          ├─ Size (ModuleScript)
+          ├─ Slider (ModuleScript)
+          ├─ Sound (ModuleScript)
+          ├─ UIScale (ModuleScript)
+        ├─ Elements (Folder)
+          ├─ Hotbar (ModuleScript)
+          ├─ Nametag (ModuleScript)
+          ├─ Profiles (ModuleScript)
+          ├─ Prompts (ModuleScript)
+            ├─ Containers (ModuleScript)
+      ├─ Modules (Folder)
+        ├─ ClockReplicator (ModuleScript)
+        ├─ EmoteReplicator (ModuleScript)
+        ├─ PlayerCharacterReplicator (ModuleScript)
+        ├─ PlayerReplicator (ModuleScript)
+        ├─ StreamingReplicator (ModuleScript)
+        ├─ TweenService (ModuleScript)
+      ├─ Static (Folder)
+        ├─ Settings (ModuleScript)
+          ├─ Modules (Folder)
+            ├─ Game (ModuleScript)
+            ├─ User (ModuleScript)
+        ├─ Helpers (Folder)
+          ├─ PlayerGui (ModuleScript)
+      ├─ Utilities (Folder)
+        ├─ Cache (ModuleScript)
+        ├─ Comma (ModuleScript)
+        ├─ Cooldown (ModuleScript)
+        ├─ Effects (ModuleScript)
+        ├─ Input (ModuleScript)
+        ├─ Moonlite (ModuleScript)
+          ├─ EaseFuncs (ModuleScript)
+          ├─ Specials (ModuleScript)
+          ├─ Types (ModuleScript)
+        ├─ PointerArrow (ModuleScript)
+        ├─ Shaker (ModuleScript)
+          ├─ CameraShake (ModuleScript)
+            ├─ CameraShakeInstance (ModuleScript)
+            ├─ CameraShakePresets (ModuleScript)
+        ├─ StateManager (ModuleScript)
+        ├─ TagReplicator (ModuleScript)
+        ├─ Time (ModuleScript)
+        ├─ Timer.spec (ModuleScript)
+
+========================================
+DEBUG COMPLETO!
+========================================

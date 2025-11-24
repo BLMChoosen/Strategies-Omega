@@ -23,6 +23,13 @@ local Patcher = {
         return TowerList
     end,
     ["Place"] = function(troop, x, y, z, wave, min, sec, rotate, rotatex, rotatey, rotatez, inbetween)
+        -- Parâmetro 'rotate' tem dupla função (por compatibilidade):
+        -- 1. Se 'inbetween' não for fornecido, 'rotate' é tratado como boolean para InBetween
+        -- 2. Se 'inbetween' for fornecido explicitamente, 'rotate' é ignorado
+        -- Parâmetros rotatex, rotatey, rotatez são sempre valores de rotação em radianos
+        
+        local actualInBetween = type(inbetween) == "boolean" and inbetween or (type(rotate) == "boolean" and rotate) or false
+        
         return {
             ["TowerName"] = troop,
             ["TypeIndex"] = "",
@@ -31,7 +38,7 @@ local Patcher = {
             ["Wave"] = wave,
             ["Minute"] = min,
             ["Second"] = sec,
-            ["InBetween"] = type(inbetween) == "boolean" and inbetween or rotate or false,
+            ["InBetween"] = actualInBetween,
         }
     end,
     ["Upgrade"] = function(troop, wave, min, sec, inbetween, pathtarget)

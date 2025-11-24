@@ -318,62 +318,9 @@ end
 
 loadstring(game:HttpGet(MainLink.."TDSTools/LowGraphics.lua", true))()
 
---[[local GameInfo
-getgenv().GetGameState = function()
-	if not CheckPlace() then
-		return
-	end
-	if GameInfo then
-		return GameInfo
-	end
-	repeat
-		for i,v in next, ReplicatedStorage.StateReplicators:GetChildren() do
-			if v:GetAttribute("TimeScale") then
-				GameInfo = v
-				return v
-			end
-		end
-		task.wait()
-	until GameInfo
-end
-
-local VoteState
-getgenv().GetVoteState = function()
-	if not CheckPlace() then
-		return
-	end
-	if VoteState then
-		return VoteState
-	end
-	repeat
-		for i,v in next, ReplicatedStorage.StateReplicators:GetChildren() do
-			if v:GetAttribute("MaxVotes") then
-				VoteState = v
-				return v
-			end
-		end
-		task.wait()
-	until VoteState
-end
-
-local PlayerState
-getgenv().GetPlayerState = function()
-	if not CheckPlace() then
-		return
-	end
-	if PlayerState then
-		return PlayerState
-	end
-	repeat
-		for i,v in next, ReplicatedStorage.StateReplicators:GetChildren() do
-			if typeof(v:GetAttribute("UserId")) == "number" and v:GetAttribute("UserId") == LocalPlayer.UserId then
-				PlayerState = v
-				return v
-			end
-		end
-		task.wait()
-	until PlayerState
-end]]
+-- ⚠️ StateReplicators OBSOLETO - Código removido
+-- Estado agora disponível em ReplicatedStorage.State.*
+-- Não há necessidade de buscar StateReplicators
 
 local function CheckTimer(bool)
 	return (bool and TimerCheck) or true
@@ -432,11 +379,49 @@ function ConvertTimer(number : number)
 	return math.floor(number/60), number % 60
 end
 
+-- Helper function: Obtém wave atual de forma confiável (State-first)
+getgenv().GetCurrentWave = function()
+	local success, wave = pcall(function()
+		return ReplicatedStorage.State.Wave.Value
+	end)
+	if success and wave then
+		return wave
+	end
+	return 0
+end
+
+-- Helper function: Obtém display de wave (compatível com formato do jogo)
+getgenv().GetWaveDisplay = function()
+	local wave = GetCurrentWave()
+	local totalWaves = 0
+	pcall(function()
+		totalWaves = ReplicatedStorage.State.TotalWaves.Value or 0
+	end)
+	
+	-- Lógica do jogo (Wave.lua linha 91-99)
+	if wave == -1 or wave >= 90000 then
+		return "∞"
+	end
+	if wave == 0 and totalWaves == 0 then
+		return "--"
+	end
+	return `{wave}/{math.max(totalWaves, wave)}`
+end
+
 getgenv().TimeWaveWait = function(Wave,Min,Sec,InWave,Debug)
-	local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay"):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value") -- Current wave you are on
-    local MatchGui = LocalPlayer.PlayerGui:WaitForChild("ReactGameRewards"):WaitForChild("Frame"):WaitForChild("gameOver") -- end result
-	local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time") -- Current game's timer
-	if Debug or tonumber(GameWave.Text) > Wave and not MatchGui.Visible then
+	-- STATE-FIRST: Usa ReplicatedStorage.State.Wave como fonte primária
+	local RSWave = ReplicatedStorage:WaitForChild("State"):WaitForChild("Wave")
+	local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time")
+	local MatchGui = LocalPlayer.PlayerGui:WaitForChild("ReactGameRewards"):WaitForChild("Frame"):WaitForChild("gameOver")
+	
+	-- GUI Wave apenas para fallback/debug (opcional)
+	local GameWave
+	pcall(function()
+		GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay",2):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value")
+	end)
+	
+	-- Usa State.Wave como fonte primária
+	if Debug or RSWave.Value > Wave and not MatchGui.Visible then
 		return true
 	end
 	local CurrentCount = StratXLibrary.CurrentCount
@@ -445,7 +430,7 @@ getgenv().TimeWaveWait = function(Wave,Min,Sec,InWave,Debug)
 		if MatchGui.Visible or CurrentCount ~= StratXLibrary.RestartCount then
 			return false
 		end
-	until tonumber(GameWave.Text) == Wave and CheckTimer(InWave) --CheckTimer will return true when in wave and false when not in wave
+	until RSWave.Value == Wave and CheckTimer(InWave) --CheckTimer will return true when in wave and false when not in wave
 	
     -- Debug print to check values
     if not TotalSec then
@@ -563,14 +548,33 @@ UtilitiesTab = UI.UtilitiesTab
 
 --InGame Core
 if CheckPlace() then
-	local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay"):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value") -- Current wave you are on
-    local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time") -- Current game's timer
+	-- STATE-FIRST APPROACH: Usar ReplicatedStorage.State como fonte primária
+	local RSTimer = ReplicatedStorage:WaitForChild("State"):WaitForChild("Timer"):WaitForChild("Time") -- Current game's timer
     local RSMode = ReplicatedStorage:WaitForChild("State"):WaitForChild("Mode") -- Main Modes
     local RSDifficulty = ReplicatedStorage:WaitForChild("State"):WaitForChild("Difficulty") -- Survival's gamemodes
-    local RSMap = ReplicatedStorage:WaitForChild("State"):WaitForChild("Map") --map's Name
+    local RSMap = ReplicatedStorage:WaitForChild("State"):WaitForChild("Map") -- Map's Name
+    local RSWave = ReplicatedStorage:WaitForChild("State"):WaitForChild("Wave") -- Current Wave (PRIMARY SOURCE)
     local RSHealthCurrent = ReplicatedStorage:WaitForChild("State"):WaitForChild("Health"):WaitForChild("Current") -- your current base hp
     local RSHealthMax = ReplicatedStorage:WaitForChild("State"):WaitForChild("Health"):WaitForChild("Max") -- your max hp
-    local VoteGUI = LocalPlayer.PlayerGui:WaitForChild("ReactOverridesVote"):WaitForChild("Frame"):WaitForChild("votes"):WaitForChild("vote") -- it is what it is
+	
+	-- GUI Wave (opcional - apenas para display visual)
+	local GameWave
+	pcall(function()
+		GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay",5):WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value")
+	end)
+	if not GameWave then
+		ConsoleWarn("GUI Wave display not found - will use State.Wave for display")
+	end
+    
+    -- VoteGUI com fallback
+    local VoteGUI
+    pcall(function()
+    	VoteGUI = LocalPlayer.PlayerGui:WaitForChild("ReactOverridesVote",5):WaitForChild("Frame"):WaitForChild("votes"):WaitForChild("vote")
+    end)
+    if not VoteGUI then
+    	ConsoleWarn("VoteGUI path not found - voting features may not work")
+    end
+    
     local MatchGui = LocalPlayer.PlayerGui:WaitForChild("ReactGameRewards"):WaitForChild("Frame"):WaitForChild("gameOver") -- end result
 	if #Players:GetChildren() > 1 and getgenv().Multiplayer["Enabled"] == false then
 		TeleportService:Teleport(3260590327, LocalPlayer)
@@ -604,15 +608,29 @@ if CheckPlace() then
 			TimerCheck = false
 		end
 	end)
-	if VoteGUI:WaitForChild("prompt").Text == "Ready?" then --Event GameMode
-		task.spawn(function()
-			repeat task.wait() until StratXLibrary.Executed
-			RemoteFunction:InvokeServer("Voting", "Skip")
-			prints("Ready Signal Fired")
-		end)
-	end
-	StratXLibrary.ReadyState = false
-	StratXLibrary.VoteState = VoteGUI:GetPropertyChangedSignal("Position"):Connect(function()
+	
+	-- Sistema de votação - só executa se VoteGUI existir
+	if VoteGUI then
+		if VoteGUI:WaitForChild("prompt").Text == "Ready?" then --Event GameMode
+			task.spawn(function()
+				repeat task.wait() until StratXLibrary.Executed
+				-- Sistema de votação com fallback
+				local voteSuccess = pcall(function()
+					-- Tenta usar Network.Channel (método correto)
+					local Network = require(ReplicatedStorage.Resources.Universal.Network)
+					local VotingChannel = Network.Channel("Voting")
+					VotingChannel:InvokeServer("Skip")
+				end)
+				if not voteSuccess then
+					-- Fallback para método antigo
+					ConsoleWarn("Network.Channel voting failed - using RemoteFunction fallback")
+					RemoteFunction:InvokeServer("Voting", "Skip")
+				end
+				prints("Ready Signal Fired")
+			end)
+		end
+		StratXLibrary.ReadyState = false
+		StratXLibrary.VoteState = VoteGUI:GetPropertyChangedSignal("Position"):Connect(function()
 		if VoteGUI:WaitForChild("count").Text ~= `0/{#Players:GetChildren()} Required` then
 			repeat
                 task.wait()
@@ -624,7 +642,16 @@ if CheckPlace() then
 		local currentPrompt = VoteGUI:WaitForChild("prompt").Text
    		if currentPrompt == "Ready?" or currentPrompt == "Skip Cutscene?" then --Event GameMode
    			task.wait(2)
-   			RemoteFunction:InvokeServer("Voting", "Skip")
+   			-- Sistema de votação com fallback
+   			local voteSuccess = pcall(function()
+   				local Network = require(ReplicatedStorage.Resources.Universal.Network)
+   				local VotingChannel = Network.Channel("Voting")
+   				VotingChannel:InvokeServer("Skip")
+   			end)
+   			if not voteSuccess then
+   				ConsoleWarn("Network.Channel voting failed - using RemoteFunction fallback")
+   				RemoteFunction:InvokeServer("Voting", "Skip")
+   			end
    			StratXLibrary.ReadyState = true
 			if currentPrompt == "Ready?" then
     			prints("Ready Signal Fired")
@@ -642,12 +669,32 @@ if CheckPlace() then
    			until UtilitiesConfig.AutoSkip
    		end
    	    if currentPrompt == "Skip Wave?" then
-   			RemoteFunction:InvokeServer("Voting", "Skip")
+   	    	-- Sistema de votação com fallback
+   	    	local voteSuccess = pcall(function()
+   	    		local Network = require(ReplicatedStorage.Resources.Universal.Network)
+   	    		local VotingChannel = Network.Channel("Voting")
+   	    		VotingChannel:InvokeServer("Skip")
+   	    	end)
+   	    	if not voteSuccess then
+   	    		ConsoleWarn("Network.Channel voting failed - using RemoteFunction fallback")
+   	    		RemoteFunction:InvokeServer("Voting", "Skip")
+   	    	end
    			SetActionInfo("Skip","Total")
    			SetActionInfo("Skip")
-   			ConsoleInfo(`Skipped Wave {tonumber(GameWave.Text)}`)
+   			
+   			-- Wave display: Prioriza State.Wave, usa GUI como fallback visual
+   			local waveNumber = RSWave.Value
+   			if GameWave and GameWave.Text and not tonumber(GameWave.Text) then
+   				-- Se GUI tem texto mas não é número (ex: "∞", "--"), usa GUI
+   				ConsoleInfo(`Skipped Wave {GameWave.Text}`)
+   			else
+   				ConsoleInfo(`Skipped Wave {waveNumber}`)
+   			end
    		end
 	end)
+	else
+		ConsoleWarn("VoteGUI not available - voting features disabled")
+	end
 
 	task.spawn(function()
 		--repeat task.wait() until Workspace.Map:FindFirstChild("Environment"):FindFirstChild("SpawnLocation")
@@ -831,7 +878,8 @@ if CheckPlace() then
 					until VoteCheck
 					prints("VoteCheck Passed")
 				end)
-				repeat task.wait() until StratXLibrary.ReadyState or (tonumber(GameWave.Text) ~= nil and tonumber(GameWave.Text) <= 1) or (RSHealthCurrent.Value == RSHealthMax.Value)
+				-- Aguarda Ready state ou wave começar (usa State.Wave ao invés de GUI)
+				repeat task.wait() until StratXLibrary.ReadyState or (RSWave.Value ~= nil and RSWave.Value <= 1) or (RSHealthCurrent.Value == RSHealthMax.Value)
 				prints("Prepare Set All ListNum To 1")
 				StratXLibrary.CurrentCount = StratXLibrary.RestartCount
 				for i,v in ipairs(StratXLibrary.Strat) do

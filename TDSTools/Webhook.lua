@@ -226,7 +226,29 @@ Embed.AddFooter(`{os.date("%X")} {os.date("%x")}`)
 Embed.AddField("------------------ GAME INFO ----------------","",false)
 Embed.AddField("Map:",ReplicatedStorage.State.Map.Value)
 Embed.AddField("Mode:",ReplicatedStorage.State.Difficulty.Value)
-Embed.AddField("Wave / Health:",LocalPlayer.PlayerGui.ReactGameTopGameDisplay.Frame.wave.container.value.Text.." / "..tostring(ReplicatedStorage.State.Health.Current.Value).." ("..tostring(ReplicatedStorage.State.Health.Max.Value)..")")
+
+-- STATE-FIRST: Usa State.Wave ao invés de GUI
+local waveDisplay = "Unknown"
+local healthInfo = "Unknown"
+pcall(function()
+	local wave = ReplicatedStorage.State.Wave.Value
+	local totalWaves = 0
+	pcall(function() totalWaves = ReplicatedStorage.State.TotalWaves.Value or 0 end)
+	
+	-- Formato do jogo
+	if wave == -1 or wave >= 90000 then
+		waveDisplay = "∞"
+	elseif wave == 0 and totalWaves == 0 then
+		waveDisplay = "--"
+	else
+		waveDisplay = `{wave}/{math.max(totalWaves, wave)}`
+	end
+end)
+pcall(function()
+	healthInfo = `{ReplicatedStorage.State.Health.Current.Value} ({ReplicatedStorage.State.Health.Max.Value})`
+end)
+
+Embed.AddField("Wave / Health:", `{waveDisplay} / {healthInfo}`)
 Embed.AddField("Game Time:",TimeFormat(Stats.duration.Text))
 
 repeat

@@ -68,14 +68,49 @@ if CheckPlace() then
             until ReplicatedStorage.Assets:FindFirstChild("Troops")
         end
         local TroopsFolder = ReplicatedStorage.Assets:FindFirstChild("Troops")
+        
+        -- Verifica se o sistema de streaming ainda existe
+        local streamingSupported = true
+        local testSuccess = pcall(function()
+            -- Testa se o remote "Streaming" ainda responde
+            RemoteEvent:FireServer("Streaming", "Test")
+        end)
+        
+        if not testSuccess then
+            print("[WARNING] Tower streaming system may not be available - using alternative loading")
+            streamingSupported = false
+        end
+        
         for i,v in next, GetTowersInfo() do
             if v.Equipped and not (TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)) then
-                repeat 
-                    task.wait(1)
-                    if not (TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)) then
-                        RemoteEvent:FireServer("Streaming", "SelectTower", i, v.Skin)
-                    end
-                until TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)
+                if streamingSupported then
+                    -- Tenta usar sistema de streaming
+                    repeat 
+                        task.wait(1)
+                        if not (TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)) then
+                            local success = pcall(function()
+                                RemoteEvent:FireServer("Streaming", "SelectTower", i, v.Skin)
+                            end)
+                            if not success then
+                                print(`[WARNING] Failed to stream tower {i} - may need manual load`)
+                                streamingSupported = false
+                                break
+                            end
+                        end
+                    until TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)
+                else
+                    -- Fallback: aguarda tower carregar naturalmente
+                    print(`[INFO] Waiting for tower {i} to load naturally...`)
+                    local timeout = 0
+                    repeat
+                        task.wait(1)
+                        timeout = timeout + 1
+                        if timeout > 30 then
+                            print(`[ERROR] Tower {i} failed to load after 30 seconds`)
+                            break
+                        end
+                    until TroopsFolder:FindFirstChild(i) and TroopsFolder:FindFirstChild(i).Skins:FindFirstChild(v.Skin)
+                end
             end
         end
         StratXLibrary.AllowPlace = true

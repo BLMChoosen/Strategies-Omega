@@ -2,34 +2,112 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
--- Helper function to find objects recursively
-local function FindObject(Parent, Name)
-    local Object = Parent:FindFirstChild(Name, true)
-    if not Object then
-        warn("Could not find " .. Name .. " in " .. Parent.Name)
-        return Parent:WaitForChild(Name, 5) -- Try waiting with timeout
+-- Verificação de compatibilidade do executor
+if not hookmetamethod or not getnamecallmethod then
+    local missingFunctions = {}
+    if not hookmetamethod then table.insert(missingFunctions, "hookmetamethod") end
+    if not getnamecallmethod then table.insert(missingFunctions, "getnamecallmethod") end
+    
+    local errorMsg = string.format(
+        "RECORDER ERROR: Your executor is NOT compatible!\n\n" ..
+        "Missing: %s\n\n" ..
+        "You need an executor with metamethod hooking support.",
+        table.concat(missingFunctions, ", ")
+    )
+    
+    -- Mostra notificação na tela
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "❌ Recorder Error";
+            Text = "Executor not compatible! Check console (F9) for details.";
+            Duration = 10;
+        })
+    end)
+    
+    -- Também mostra no console
+    warn(string.rep("=", 60))
+    warn("[RECORDER ERROR]")
+    warn("Your executor is NOT compatible with this recorder!")
+    warn("")
+    warn("Missing functions:", table.concat(missingFunctions, ", "))
+    warn("")
+    warn("This recorder requires metamethod hooking support.")
+    warn(string.rep("=", 60))
+    
+    error(errorMsg)
+end
+
+-- Verificação de ambiente spoofed
+local SpoofEvent = {}
+if GameSpoof then
+    function SpoofEvent:InvokeServer(...)
+        print("InvokeServer",...)
     end
-    return Object
+    function SpoofEvent:FireServer(...)
+        print("FireServer",...)
+    end
 end
 
-local RemoteFunction = if not GameSpoof then FindObject(ReplicatedStorage, "RemoteFunction") else SpoofEvent
-local RemoteEvent = if not GameSpoof then FindObject(ReplicatedStorage, "RemoteEvent") else SpoofEvent
+-- Helper function to find objects safely
+local function SafeWaitForChild(Parent, Name, Timeout)
+    local success, result = pcall(function()
+        return Parent:WaitForChild(Name, Timeout or 10)
+    end)
+    if success then
+        return result
+    else
+        warn("[Recorder] Could not find " .. Name .. " in " .. tostring(Parent))
+        return nil
+    end
+end
 
-local StateFolder = FindObject(ReplicatedStorage, "State")
-local RSTimer = FindObject(StateFolder, "Time") -- Usually in State/Timer/Time or just State/Time
-if not RSTimer then RSTimer = StateFolder:WaitForChild("Timer"):WaitForChild("Time") end
+-- Inicialização segura dos RemoteFunction/Event
+local RemoteFunction = if not GameSpoof then SafeWaitForChild(ReplicatedStorage, "RemoteFunction") else SpoofEvent
+local RemoteEvent = if not GameSpoof then SafeWaitForChild(ReplicatedStorage, "RemoteEvent") else SpoofEvent
 
-local RSMode = FindObject(StateFolder, "Mode")
-local RSDifficulty = FindObject(StateFolder, "Difficulty")
-local RSMap = FindObject(StateFolder, "Map")
+-- Inicialização segura do State
+local StateFolder = SafeWaitForChild(ReplicatedStorage, "State")
+local RSTimer, RSMode, RSDifficulty, RSMap, RSWave
 
-local GameWave = LocalPlayer.PlayerGui:WaitForChild("ReactGameTopGameDisplay", 10)
-if GameWave then
-    GameWave = GameWave:WaitForChild("Frame"):WaitForChild("wave"):WaitForChild("container"):WaitForChild("value")
+if StateFolder then
+    -- Timer está em State/Timer/Time
+    local TimerFolder = StateFolder:FindFirstChild("Timer")
+    if TimerFolder then
+        RSTimer = SafeWaitForChild(TimerFolder, "Time")
+    end
+    
+    RSMode = SafeWaitForChild(StateFolder, "Mode")
+    RSDifficulty = SafeWaitForChild(StateFolder, "Difficulty")
+    RSMap = SafeWaitForChild(StateFolder, "Map")
+    RSWave = SafeWaitForChild(StateFolder, "Wave")  -- Wave é IntValue em State!
 else
-    warn("Could not find GameWave GUI")
+    warn("[Recorder] StateFolder not found! Recorder may not work properly.")
 end
+
+-- Também pega a GUI da wave (para display visual, mas não é essencial)
+local GameWaveGUI = nil
+local function InitGameWaveGUI()
+    pcall(function()
+        local gui = SafeWaitForChild(LocalPlayer.PlayerGui, "ReactGameTopGameDisplay", 5)
+        if gui then
+            local frame = SafeWaitForChild(gui, "Frame", 3)
+            if frame then
+                local wave = SafeWaitForChild(frame, "wave", 3)
+                if wave then
+                    local container = SafeWaitForChild(wave, "container", 3)
+                    if container then
+                        GameWaveGUI = SafeWaitForChild(container, "value", 3)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Inicializa GameWave GUI (opcional, só para visual)
+task.spawn(InitGameWaveGUI)
 
 getgenv().WriteFile = function(check,name,location,str)
     if not check then
@@ -73,6 +151,9 @@ getgenv().AppendFile = function(check,name,location,str)
         error("Argument 2 must be a string got " .. tostring(number))
     end
 end
+-- Nome do arquivo de estratégia (sanitizado)
+local StratFileName = "RecordedStrat"
+
 local writestrat = function(...)
     local TableText = {...}
     task.spawn(function()
@@ -86,7 +167,7 @@ local writestrat = function(...)
         end
         local Text = table.concat(TableText, " ")
         print(Text)
-        return WriteFile(true,LocalPlayer.Name.."'s strat","StrategiesX/TDS/Recorder",tostring(Text).."\n")
+        return WriteFile(true, StratFileName, "StrategiesX/TDS/Recorder", tostring(Text).."\n")
     end)
 end
 local appendstrat = function(...)
@@ -102,7 +183,7 @@ local appendstrat = function(...)
         end
         local Text = table.concat(TableText, " ")
         print(Text)
-        return AppendFile(true,LocalPlayer.Name.."'s strat","StrategiesX/TDS/Recorder",tostring(Text).."\n")
+        return AppendFile(true, StratFileName, "StrategiesX/TDS/Recorder", tostring(Text).."\n")
     end)
 end
 getgenv().Recorder = {
@@ -115,12 +196,51 @@ getgenv().TowersList = Recorder.TowersList
 local TowerCount = 0
 local GetMode = nil
 
-local UILibrary = getgenv().UILibrary or loadstring(game:HttpGet("https://raw.githubusercontent.com/Sigmanic/ROBLOX/main/ModificationWallyUi", true))()
+-- Carrega UILibrary com tratamento de erro e verificação de rate limit
+local UILibrary = getgenv().UILibrary
+if not UILibrary then
+    local code
+    local success, err = pcall(function()
+        code = game:HttpGet("https://raw.githubusercontent.com/Sigmanic/ROBLOX/main/ModificationWallyUi")
+    end)
+    
+    if not success then
+        error("[Recorder] Failed to download UILibrary: " .. tostring(err))
+    end
+    
+    -- Verifica se recebeu erro 429 (rate limit) ou outro erro HTTP
+    if code:match("^%d+:") or code:match("Too Many Requests") then
+        error("[Recorder] GitHub rate limit! Wait a few minutes and try again.\nError: " .. code:sub(1, 100))
+    end
+    
+    -- Tenta compilar o código
+    local loadFunc, loadErr = loadstring(code)
+    if not loadFunc then
+        error("[Recorder] Failed to compile UILibrary: " .. tostring(loadErr))
+    end
+    
+    -- Executa o código compilado
+    local execSuccess, library = pcall(loadFunc)
+    if not execSuccess then
+        error("[Recorder] Failed to execute UILibrary: " .. tostring(library))
+    end
+    
+    UILibrary = library
+    getgenv().UILibrary = library
+end
+
+if not UILibrary then
+    error("[Recorder] UILibrary is nil - cannot continue")
+end
+
+UILibrary.options = UILibrary.options or {}
 UILibrary.options.toggledisplay = 'Fill'
 
 local mainwindow = UILibrary:CreateWindow('Recorder')
-UILibrary.container.Parent.Parent = LocalPlayer.PlayerGui
-Recorder.Status = mainwindow:Section("Loading")
+if UILibrary.container and UILibrary.container.Parent then
+    UILibrary.container.Parent.Parent = LocalPlayer.PlayerGui
+end
+Recorder.Status = mainwindow:Section("Initializing...")
 
 local timeSection = mainwindow:Section("Time Passed: ")
 task.spawn(function()
@@ -150,36 +270,22 @@ local function SetStatus(string)
     Recorder.Status.Text = string
 end
 
---[[local GameInfo
-getgenv().GetGameInfo = function()
-    if GameInfo then
-        return GameInfo
+-- Mostrar que está pronto logo após criar a GUI
+SetStatus("Ready - Initializing recorder...")
+
+-- Função para sanitizar strings (evitar caracteres especiais que quebram Lua)
+local function SanitizeString(str)
+    if type(str) ~= "string" then
+        return tostring(str)
     end
-    repeat
-        for i,v in next, ReplicatedStorage.StateReplicators:GetChildren() do
-            if v:GetAttribute("TimeScale") then
-                GameInfo = v
-                return v
-            end
-        end
-        task.wait()
-    until GameInfo
+    -- Remove ou escapa caracteres problemáticos
+    str = str:gsub('"', '\\"')  -- Escapa aspas duplas
+    str = str:gsub("'", "\\'")  -- Escapa aspas simples
+    return str
 end
-local VoteState
-getgenv().GetVoteState = function()
-    if VoteState then
-        return VoteState
-    end
-    repeat
-        for i,v in next, ReplicatedStorage.StateReplicators:GetChildren() do
-            if v:GetAttribute("MaxVotes") then
-                VoteState = v
-                return v
-            end
-        end
-        task.wait()
-    until VoteState
-end]]
+
+-- ⚠️ StateReplicators OBSOLETO - Código removido
+-- Estado agora disponível em ReplicatedStorage.State.*
 
 local function ConvertTimer(number : number)
    return math.floor(number/60), number % 60
@@ -189,33 +295,59 @@ local TimerCheck = false
 local function CheckTimer(bool)
     return (bool and TimerCheck) or true
 end
-RSTimer.Changed:Connect(function(time)
-    if time == 5 then
-        TimerCheck = true
-    elseif time and time > 5 then
-        TimerCheck = false
-    end
-end)
+
+-- Conecta ao Timer apenas se ele existir
+if RSTimer then
+    RSTimer.Changed:Connect(function(time)
+        if time == 5 then
+            TimerCheck = true
+        elseif time and time > 5 then
+            TimerCheck = false
+        end
+    end)
+else
+    warn("[Recorder] RSTimer not available - Timer checks disabled")
+end
 
 -- Tenta pegar o Timer de forma global para garantir que o hook o encontre
 getgenv().GetTimer = function()
-    local Min, Sec = ConvertTimer(RSTimer.Value)
-    -- Verifica se GameWave existe antes de tentar acessar .Text
-    local Wave = "0"
-    if GameWave then
-        Wave = GameWave.Text
+    if not RSTimer then
+        warn("[Recorder] RSTimer not available")
+        return {0, 0, 0, "false"}
     end
-    return {tonumber(Wave), Min, Sec + Recorder.SecondMili, tostring(TimerCheck)}
+    
+    local success, timerValue = pcall(function() return RSTimer.Value end)
+    if not success or not timerValue then
+        warn("[Recorder] Could not get RSTimer.Value")
+        return {0, 0, 0, "false"}
+    end
+    
+    local Min, Sec = ConvertTimer(timerValue)
+    
+    -- Pega Wave do State (é um IntValue!)
+    local Wave = 0
+    if RSWave then
+        local waveSuccess, waveValue = pcall(function() return RSWave.Value end)
+        if waveSuccess then
+            Wave = waveValue or 0
+        end
+    end
+    
+    return {tonumber(Wave) or 0, Min, Sec + (Recorder.SecondMili or 0), tostring(TimerCheck)}
 end
 
 Recorder.SecondMili = 0
-RSTimer.Changed:Connect(function()
-    Recorder.SecondMili = 0
-    for i = 1,9 do
-        task.wait(0.09)
-        Recorder.SecondMili += 0.1
-    end
-end)
+
+-- Conecta ao RSTimer apenas se ele existir
+if RSTimer then
+    RSTimer.Changed:Connect(function()
+        Recorder.SecondMili = 0
+        for i = 1,9 do
+            task.wait(0.09)
+            Recorder.SecondMili += 0.1
+        end
+    end)
+end
 
 local GenerateFunction = {
     Place = function(Args, Timer, RemoteCheck)
@@ -239,40 +371,59 @@ local GenerateFunction = {
             ["Position"] = Position,
             ["Rotation"] = Rotation,
         }
-        local upgradeHandler = require(ReplicatedStorage.Client.Modules.Game.Interface.Elements.Upgrade.upgradeHandler)
-        if upgradeHandler and upgradeHandler.selectTroop then
-             upgradeHandler:selectTroop(RemoteCheck)
-        end
-        SetStatus(`Placed {TowerName}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Place("{TowerName}", {Position.X}, {Position.Y}, {Position.Z}, {TimerStr}, {RotateX}, {RotateY}, {RotateZ})`)
+        
+        -- Tenta selecionar a tropa (pode falhar se o módulo mudou)
+        pcall(function()
+            local upgradeHandler = require(ReplicatedStorage.Client.Modules.Game.Interface.Elements.Upgrade.upgradeHandler)
+            if upgradeHandler and upgradeHandler.selectTroop then
+                 upgradeHandler:selectTroop(RemoteCheck)
+            end
+        end)
+        
+        SetStatus(string.format("Placed %s", TowerName))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}, precisa desempacotar
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        local safeName = SanitizeString(TowerName)
+        
+        -- Corrigido: incluindo RotateZ
+        appendstrat(string.format('TDS:Place("%s", %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)', 
+            safeName, Position.X, Position.Y, Position.Z, Wave, Min, Sec, InWave, RotateX, RotateY, RotateZ))
     end,
     Upgrade = function(Args, Timer, RemoteCheck)
         local Data = Args[4]
         if not Data or not Data.Troop then return end
         local TowerIndex = Data.Troop.Name;
-        local PathTarget = Data.Path
+        local PathTarget = Data.Path or 1
         if RemoteCheck ~= true then
-            SetStatus(`Upgraded Failed ID: {TowerIndex}`)
-            print(`Upgraded Failed ID: {TowerIndex}`, RemoteCheck)
+            SetStatus(string.format("Upgrade Failed ID: %s", TowerIndex))
+            print(string.format("Upgrade Failed ID: %s", TowerIndex), RemoteCheck)
             return
         end
-        SetStatus(`Upgraded ID: {TowerIndex}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Upgrade({TowerIndex}, {TimerStr}, {PathTarget})`)
+        SetStatus(string.format("Upgraded ID: %s", TowerIndex))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        
+        appendstrat(string.format('TDS:Upgrade(%s, %s, %s, %s, %s, %s)', 
+            TowerIndex, Wave, Min, Sec, InWave, PathTarget))
     end,
     Sell = function(Args, Timer, RemoteCheck)
         local Data = Args[3]
         if not Data or not Data.Troop then return end
         local TowerIndex = Data.Troop.Name;
         if not RemoteCheck or (TowersList[tonumber(TowerIndex)] and TowersList[tonumber(TowerIndex)].Instance:FindFirstChild("HumanoidRootPart")) then
-            SetStatus(`Sell Failed ID: {TowerIndex}`)
-            print(`Sell Failed ID: {TowerIndex}`, RemoteCheck)
+            SetStatus(string.format("Sell Failed ID: %s", TowerIndex))
+            print(string.format("Sell Failed ID: %s", TowerIndex), RemoteCheck)
             return
         end
-        SetStatus(`Sold TowerIndex {TowerIndex}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Sell({TowerIndex}, {TimerStr})`)
+        SetStatus(string.format("Sold TowerIndex %s", TowerIndex))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        
+        appendstrat(string.format('TDS:Sell(%s, %s, %s, %s, %s)', 
+            TowerIndex, Wave, Min, Sec, InWave))
     end,
     Target = function(Args, Timer, RemoteCheck)
         local Data = Args[4]
@@ -280,12 +431,17 @@ local GenerateFunction = {
         local TowerIndex = Data.Troop.Name
         local Target = Data.Target
         if RemoteCheck ~= true then
-            SetStatus(`Target Failed ID: {TowerIndex}`)
-            print(`Target Failed ID: {TowerIndex}`, RemoteCheck)
+            SetStatus(string.format("Target Failed ID: %s", TowerIndex))
+            print(string.format("Target Failed ID: %s", TowerIndex), RemoteCheck)
         end
-        SetStatus(`Changed Target ID: {TowerIndex}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Target({TowerIndex}, "{Target}", {TimerStr})`)
+        SetStatus(string.format("Changed Target ID: %s", TowerIndex))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        local safeTarget = SanitizeString(Target)
+        
+        appendstrat(string.format('TDS:Target(%s, "%s", %s, %s, %s, %s)', 
+            TowerIndex, safeTarget, Wave, Min, Sec, InWave))
     end,
     Abilities = function(Args, Timer, RemoteCheck)
         local Data = Args[4]
@@ -294,8 +450,8 @@ local GenerateFunction = {
         local AbilityName = Data.Name
         local AbilityData = Data.Data
         if RemoteCheck ~= true then
-            SetStatus(`Ability Failed ID: {TowerIndex}`)
-            print(`Ability Failed ID: {TowerIndex}`, RemoteCheck)
+            SetStatus(string.format("Ability Failed ID: %s", TowerIndex))
+            print(string.format("Ability Failed ID: %s", TowerIndex), RemoteCheck)
             return
         end
         local function formatData(Data)
@@ -312,9 +468,14 @@ local GenerateFunction = {
             return "{" .. table.concat(formattedData, ", ") .. "}"
         end
         local formattedData = formatData(AbilityData)
-        SetStatus(`Used Ability On TowerIndex {TowerIndex}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Ability({TowerIndex}, "{AbilityName}", {TimerStr}, {formattedData})`)
+        SetStatus(string.format("Used Ability On TowerIndex %s", TowerIndex))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        local safeName = SanitizeString(AbilityName)
+        
+        appendstrat(string.format('TDS:Ability(%s, "%s", %s, %s, %s, %s, %s)', 
+            TowerIndex, safeName, Wave, Min, Sec, InWave, formattedData))
     end,
     Option = function(Args, Timer, RemoteCheck)
         local Data = Args[4]
@@ -323,18 +484,27 @@ local GenerateFunction = {
         local OptionName = Data.Name
         local Value = Data.Value
         if RemoteCheck ~= true then
-            SetStatus(`Option Failed ID; {TowerIndex}`)
-            print(`Option Failed ID: {TowerIndex}`, RemoteCheck)
+            SetStatus(string.format("Option Failed ID: %s", TowerIndex))
+            print(string.format("Option Failed ID: %s", TowerIndex), RemoteCheck)
             return
         end
-        SetStatus(`Used Option On TowerIndex {TowerIndex}`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Option({TowerIndex}, "{OptionName}", "{Value}", {TimerStr})`)
+        SetStatus(string.format("Used Option On TowerIndex %s", TowerIndex))
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        local safeName = SanitizeString(OptionName)
+        local safeValue = SanitizeString(Value)
+        
+        appendstrat(string.format('TDS:Option(%s, "%s", "%s", %s, %s, %s, %s)', 
+            TowerIndex, safeName, safeValue, Wave, Min, Sec, InWave))
     end,
     Skip = function(Args, Timer, RemoteCheck)
-        SetStatus(`Skipped Wave`)
-        local TimerStr = table.concat(Timer, ", ")
-        appendstrat(`TDS:Skip({TimerStr})`)
+        SetStatus("Skipped Wave")
+        
+        -- Timer é uma tabela {wave, min, sec, inwave}
+        local Wave, Min, Sec, InWave = Timer[1], Timer[2], Timer[3], Timer[4]
+        
+        appendstrat(string.format('TDS:Skip(%s, %s, %s, %s)', Wave, Min, Sec, InWave))
     end,
     Vote = function(Args, Timer, RemoteCheck)
         local Difficulty = Args[3]
@@ -346,83 +516,174 @@ local GenerateFunction = {
             ["Fallen"] = "Fallen"
         }
         GetMode = DiffTable[Difficulty] or Difficulty
-        SetStatus(`Vote {GetMode}`)
+        SetStatus(string.format("Vote %s", GetMode))
     end,
 }
 
+-- AutoSkip feature - vota automaticamente quando disponível
 task.spawn(function()
-    -- Tenta encontrar a GUI de votação com timeout para não travar se já tiver passado
-    local VoteGUI = LocalPlayer.PlayerGui:WaitForChild("ReactOverridesVote", 5)
-    if not VoteGUI then 
-        warn("VoteGUI não encontrado (provavelmente a votação já acabou). AutoSkip pode não funcionar.")
-        return 
-    end
-    
-    local Frame = VoteGUI:WaitForChild("Frame", 5)
-    if not Frame then return end
-    
-    local Votes = Frame:WaitForChild("votes", 5)
-    if not Votes then return end
-    
-    local Vote = Votes:WaitForChild("vote", 5)
-    if not Vote then return end
-
-    local Skipped = false
-    Vote:GetPropertyChangedSignal("Position"):Connect(function()
-        repeat task.wait() until mainwindow.flags.autoskip
-        if Skipped or Vote:WaitForChild("count").Text ~= "0/1 Required" then
+    local success, err = pcall(function()
+        -- Aguarda inicialização
+        task.wait(2)
+        
+        -- Tenta obter o Network Channel como o jogo original faz
+        local VotingChannel
+        pcall(function()
+            local Network = require(ReplicatedStorage.Resources.Universal.Network)
+            VotingChannel = Network.Channel("Voting")
+        end)
+        
+        if not VotingChannel then
+            warn("[Recorder] VotingChannel not available for AutoSkip")
             return
         end
-        local currentPrompt = Vote:WaitForChild("prompt").Text
-        if currentPrompt == "Skip Wave?" and tonumber(GameWave.Text) ~= 0 then
-            Skipped = true
-            local Timer = GetTimer()
-            task.spawn(GenerateFunction["Skip"], true, Timer)
-            ReplicatedStorage.RemoteFunction:InvokeServer("Voting", "Skip")
-            task.wait(2.5)
-            Skipped = false
+        
+        -- Monitora mudanças na wave para detectar quando pode votar
+        if not RSWave then
+            warn("[Recorder] RSWave not available for AutoSkip")
+            return
         end
-    end)
-end)
-
-task.spawn(function()
-    GameWave:GetPropertyChangedSignal("Text"):Wait()
-    local FinalWaveAtDifferentMode = {
-        ["Easy"] = 25,
-        ["Casual"] = 30,
-        ["Intermediate"] = 30,
-        ["Molten"] = 35,
-        ["Fallen"] = 40,
-        ["Hardcore"] = 50
-    }
-    local FinalWave = FinalWaveAtDifferentMode[RSDifficulty.Value]
-    GameWave:GetPropertyChangedSignal("Text"):Connect(function()
-        if tonumber(GameWave.Text) == FinalWave then
-            repeat task.wait() until mainwindow.flags.autosellfarms
-            for i,v in ipairs(game.Workspace.Towers:GetChildren()) do
-                if v.Owner.Value == LocalPlayer.UserId and v:WaitForChild("TowerReplicator"):GetAttribute("Type") == "Farm" then
-                    ReplicatedStorage.RemoteFunction:InvokeServer("Troops", "Sell", {["Troop"] = v})
+        
+        local lastVotedWave = 0
+        
+        RSWave.Changed:Connect(function(newWave)
+            -- Aguarda um pouco para o voto ficar disponível
+            task.wait(1)
+            
+            -- Verifica se AutoSkip está ativado
+            if not mainwindow.flags.autoskip then return end
+            
+            -- Verifica se já votou nesta wave
+            if newWave == lastVotedWave then return end
+            if newWave == 0 then return end
+            
+            -- Tenta votar para skip como o jogo faz
+            task.spawn(function()
+                for tentativa = 1, 10 do
+                    local voteSuccess, result = pcall(function()
+                        return VotingChannel:InvokeServer("Skip")
+                    end)
+                    
+                    if voteSuccess and result == true then
+                        -- Voto bem sucedido, registra na estratégia
+                        local Timer = GetTimer()
+                        GenerateFunction.Skip({}, Timer, true)
+                        lastVotedWave = newWave
+                        SetStatus("AutoSkip: Voted wave " .. tostring(newWave))
+                        break
+                    end
+                    
+                    -- Aguarda antes de tentar novamente
+                    task.wait(0.5)
                 end
+            end)
+        end)
+    end)
+    
+    if not success then
+        warn("[Recorder] AutoSkip failed to initialize:", err)
+    end
+end)
+
+-- AutoSellFarms feature
+task.spawn(function()
+    pcall(function()
+        -- Aguarda State estar disponível
+        repeat task.wait(1) until RSWave and RSDifficulty
+        
+        local FinalWaves = {
+            ["Easy"] = 25,
+            ["Casual"] = 30,
+            ["Intermediate"] = 30,
+            ["Molten"] = 35,
+            ["Fallen"] = 40,
+            ["Hardcore"] = 50
+        }
+        
+        local FinalWave = FinalWaves[RSDifficulty.Value] or 40
+        
+        RSWave.Changed:Connect(function(newWave)
+            if newWave ~= FinalWave then return end
+            if not mainwindow.flags.autosellfarms then return end
+            
+            local towersFolder = Workspace:FindFirstChild("Towers")
+            if not towersFolder then return end
+            
+            for _, v in ipairs(towersFolder:GetChildren()) do
+                pcall(function()
+                    local owner = v:FindFirstChild("Owner")
+                    if owner and owner.Value == LocalPlayer.UserId then
+                        local replicator = v:FindFirstChild("TowerReplicator")
+                        if replicator and replicator:GetAttribute("Type") == "Farm" then
+                            RemoteFunction:InvokeServer("Troops", "Sell", {["Troop"] = v})
+                        end
+                    end
+                end)
             end
-            SetStatus(`Sold All Farms`)
-        end
+            SetStatus("Sold All Farms")
+        end)
     end)
 end)
 
-for TowerName, Tower in next, ReplicatedStorage.RemoteFunction:InvokeServer("Session", "Search", "Inventory.Troops") do
-    if (Tower.Equipped) then
-        table.insert(Recorder.Troops, TowerName)
-        if (Tower.GoldenPerks) then
-            table.insert(Recorder.Troops.Golden, TowerName)
+-- Coleta informações das tropas equipadas
+local InventorySuccess, InventoryResult = pcall(function()
+    return RemoteFunction:InvokeServer("Session", "Search", "Inventory.Troops")
+end)
+
+if InventorySuccess and type(InventoryResult) == "table" then
+    for TowerName, Tower in pairs(InventoryResult) do
+        if Tower and Tower.Equipped then
+            table.insert(Recorder.Troops, TowerName)
+            if Tower.GoldenPerks then
+                table.insert(Recorder.Troops.Golden, TowerName)
+            end
         end
     end
+else
+    warn("[Recorder] Could not get tower inventory")
 end
-writestrat("getgenv().StratCreditsAuthor = \"Optional\"")
-appendstrat("local TDS = loadstring(game:HttpGet(\"https://raw.githubusercontent.com/BLMChoosen/Strategies-Omega/refs/heads/main/MainSource.lua\", true))()\nTDS:Map(\""..
-RSMap.Value.."\", true, \""..RSMode.Value.."\")\nTDS:Loadout({\""..
-    table.concat(Recorder.Troops, `", "`) .. if #Recorder.Troops.Golden ~= 0 then "\", [\"Golden\"] = {\""..
-    table.concat(Recorder.Troops.Golden, `", "`).."\"}})" else "\"})"
-)
+
+-- Valores padrões seguros
+local MapValue = (RSMap and RSMap.Value) or "Unknown"
+local ModeValue = (RSMode and RSMode.Value) or "Unknown"
+
+-- Inicializar o arquivo de estratégia de forma mais segura
+task.spawn(function()
+    -- Aguarda um pouco para garantir que tudo está inicializado
+    task.wait(1)
+    
+    local success, err = pcall(function()
+        writestrat("getgenv().StratCreditsAuthor = \"Optional\"")
+        
+        local troopsStr = ""
+        if #Recorder.Troops > 0 then
+            troopsStr = '\"' .. table.concat(Recorder.Troops, '", "') .. '\"'
+        end
+        
+        local goldenStr = ""
+        if #Recorder.Troops.Golden > 0 then
+            goldenStr = ', [\"Golden\"] = {\"' .. table.concat(Recorder.Troops.Golden, '", "') .. '\"}'
+        end
+        
+        local loadoutLine = string.format(
+            "local TDS = loadstring(game:HttpGet(\"https://raw.githubusercontent.com/BLMChoosen/Strategies-Omega/main/MainSource.lua\"))()\nTDS:Map(\"%s\", true, \"%s\")\nTDS:Loadout({%s%s})",
+            MapValue,
+            ModeValue,
+            troopsStr,
+            goldenStr
+        )
+        
+        appendstrat(loadoutLine)
+    end)
+    
+    if success then
+        SetStatus("Ready - Recording started!")
+    else
+        SetStatus("Error - Check console")
+        warn("[Recorder] Error writing initial strategy file:", err)
+    end
+end)
+
 task.spawn(function()
     local DiffTable = {
         ["Easy"] = "Easy",
@@ -431,12 +692,24 @@ task.spawn(function()
         ["Molten"] = "Molten",
         ["Fallen"] = "Fallen"
     }
-    repeat task.wait() until GetMode ~= nil or RSDifficulty.Value ~= ""
-    if GetMode then
-        repeat task.wait() until GetMode == RSDifficulty.Value
-        appendstrat(`TDS:Mode("{GetMode}")`)
-    elseif DiffTable[RSDifficulty.Value] then
-        appendstrat(`TDS:Mode("{DiffTable[RSDifficulty.Value]}")`)
+    
+    -- Aguarda até que tenhamos o valor da dificuldade
+    repeat 
+        task.wait(0.5) 
+    until GetMode ~= nil or (RSDifficulty and RSDifficulty.Value and RSDifficulty.Value ~= "")
+    
+    local ModeToUse = GetMode
+    if not ModeToUse and RSDifficulty and RSDifficulty.Value then
+        ModeToUse = DiffTable[RSDifficulty.Value] or RSDifficulty.Value
+    end
+    
+    if ModeToUse then
+        if GetMode then
+            repeat task.wait(0.5) until GetMode == (RSDifficulty and RSDifficulty.Value)
+        end
+        appendstrat(string.format('TDS:Mode("%s")', ModeToUse))
+    else
+        warn("[Recorder] Could not determine game mode")
     end
 end)
 
@@ -445,51 +718,44 @@ OldNamecall = hookmetamethod(game, '__namecall', function(...)
     local Self, Args = (...), ({select(2, ...)})
     local Method = getnamecallmethod()
     
-    if Method == "InvokeServer" and (Self.Name == "RemoteFunction" or Self:IsA("RemoteFunction")) then
-        -- Debug prints requested by user
-        warn("[Recorder Debug] InvokeServer called on " .. tostring(Self))
-        
+    if Method == "InvokeServer" and Self and (Self.Name == "RemoteFunction" or Self:IsA("RemoteFunction")) then
         local thread = coroutine.running()
+        
         coroutine.wrap(function(Args)
-            -- FIX: Use getgenv().GetTimer instead of just GetTimer to ensure we find it
-            local TimerFunc = getgenv().GetTimer
+            -- Get Timer safely
             local Timer = {0, 0, 0, "false"} -- Default safe value
             
-            if TimerFunc then
+            local TimerFunc = getgenv().GetTimer
+            if TimerFunc and type(TimerFunc) == "function" then
                 local success, result = pcall(TimerFunc)
-                if success then
+                if success and result then
                     Timer = result
-                else
-                    warn("[Recorder Debug] Error calling GetTimer:", result)
                 end
-            else
-                warn("[Recorder Debug] GetTimer not found")
             end
 
-            -- CRITICAL FIX: Use OldNamecall to execute the original method
-            -- Calling Self.InvokeServer(Self, ...) can fail or recurse
-            local RemoteFired
-            if OldNamecall then
-                -- Some exploits require setting the namecall method before calling the original function
-                setnamecallmethod("InvokeServer") 
-                RemoteFired = OldNamecall(Self, unpack(Args))
-            else
-                -- Fallback (risky, but better than crashing if OldNamecall is nil)
-                RemoteFired = Self.InvokeServer(Self, unpack(Args))
+            -- Call the original remote function
+            local RemoteFired = OldNamecall(Self, unpack(Args))
+            
+            -- Debug: Print all intercepted calls
+            if Args[1] == "Troops" and Args[2] then
+                print("[Recorder Hook] Captured:", Args[1], Args[2])
             end
             
+            -- Process the command
             local Command = Args[2]
             if type(Command) == "string" and GenerateFunction[Command] then
-                local success, err = pcall(function()
+                pcall(function()
                     GenerateFunction[Command](Args, Timer, RemoteFired)
                 end)
-                if not success then
-                    warn("[Recorder Debug] Error inside handler for " .. Command .. ":", err)
-                end
             end
+            
             coroutine.resume(thread, RemoteFired)
         end)(Args)
+        
         return coroutine.yield()
     end
-    return OldNamecall(...,unpack(Args))
+    
+    return OldNamecall(...)
 end)
+
+print("[Recorder] Initialization complete! Hook installed.")
